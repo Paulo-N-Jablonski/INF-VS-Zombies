@@ -10,8 +10,17 @@
 #define LARGURA_GRADE 72
 
 typedef enum { MENU, JOGANDO, TABELA_LIDER, FIM_DE_JOGO } GameState;
-
 GameState currentState = MENU;
+
+typedef struct Plantas {
+    Vector2 position;
+} Plantas;
+
+typedef struct Zumbis {
+    Vector2 position;
+    float velocidade; // definir com precisão dps
+    int vida;
+} Zumbis;
 
 void desenharMenuPrincipal() {
     ClearBackground(RAYWHITE);
@@ -67,14 +76,39 @@ void desenharMenuPrincipal() {
 void desenharJogando(){
     ClearBackground(RAYWHITE);
 
-    // Draw vertical lines (columns)
-    for (int i = 0; i <= COLUNAS; i++) {
-        DrawLine(i * ALTURA_GRADE, 0, i * ALTURA_GRADE, GetScreenHeight(), BLACK);
+    int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
+    int alturaTotalGrade = LINHAS * LARGURA_GRADE;
+
+    int offsetX = (GetScreenWidth() - larguraTotalGrade) / 2;
+    int offsetY = (GetScreenHeight() - alturaTotalGrade) / 2;
+    int i, j, x, y;
+
+    // desenha as linhas verticais
+    for (i = 0; i <= COLUNAS; i++) {
+        x = offsetX + i * ALTURA_GRADE;
+        DrawLine(x, offsetY, x, offsetY + alturaTotalGrade, BLACK);
     }
 
-    // Draw horizontal lines (rows)
-    for (int j = 0; j <= LINHAS; j++) {
-        DrawLine(0, j * LARGURA_GRADE, GetScreenWidth(), j * LARGURA_GRADE, BLACK);
+    // desenha as linhas horizontais
+    for (j = 0; j <= LINHAS; j++) {
+        y = offsetY + j * LARGURA_GRADE;
+        DrawLine(offsetX, y, offsetX + larguraTotalGrade, y, BLACK);
+    }
+
+    for (int i = 0; i < COLUNAS; i++) {
+        for (int j = 0; j < LINHAS; j++) {
+            int x = offsetX + i * ALTURA_GRADE;
+            int y = offsetY + j * LARGURA_GRADE;
+
+            int larguraQuadro = ALTURA_GRADE - 2;
+            int alturaQuadro = LARGURA_GRADE - 2;
+
+            if(i+j % 2){
+                DrawRectangle(x, y, larguraQuadro, alturaQuadro, DARKGREEN);
+            } else {
+                DrawRectangle(x, y, larguraQuadro, alturaQuadro, LIME);
+            }
+        }
     }
 }
 
