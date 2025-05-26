@@ -1,0 +1,238 @@
+#include "raylib.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <time.h>
+
+#define LINHAS 5
+#define COLUNAS 9
+#define ALTURA_GRADE 96
+#define LARGURA_GRADE 72
+
+typedef enum
+{
+    MENU,
+    JOGANDO,
+    TABELA_LIDER,
+    FIM_DE_JOGO
+} GameState;
+GameState currentState = MENU;
+
+typedef struct Quadrados
+{
+    Rectangle quadrado;
+    bool estaSelecionado;
+} Quadrados;
+
+Quadrados quadradosNaTela[LINHAS][COLUNAS];
+
+typedef struct Plantas
+{
+    Vector2 position;
+} Plantas;
+
+typedef struct Zumbis
+{
+    Vector2 position;
+    float velocidade; // definir com precisão dps
+    int vida;
+} Zumbis;
+
+void desenharMenuPrincipal()
+{
+    ClearBackground(RAYWHITE);
+
+    DrawText("Criador: Paulo Nata Jablonski - Turma D", 2, 590, 10, BLACK);
+    DrawText("INF Vs Zombies", 145, 110, 40, DARKGREEN);
+
+    // botão novo-jogo
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 200, 300, 50}))
+    {
+        DrawRectangle(150, 200, 300, 50, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            currentState = JOGANDO;
+        }
+    }
+    else
+    {
+        DrawRectangle(150, 200, 300, 50, LIME);
+    }
+    DrawText("Jogar", 265, 210, 30, WHITE);
+
+    // botão continuar jogando
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 270, 300, 50}))
+    {
+        DrawRectangle(150, 270, 300, 50, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            // currentState = JOGANDO;
+        }
+    }
+    else
+    {
+        DrawRectangle(150, 270, 300, 50, LIME);
+    }
+    DrawText("[TESTE]", 240, 280, 30, WHITE);
+
+    // botão da tabela de lideres
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 340, 300, 50}))
+    {
+        DrawRectangle(150, 340, 300, 50, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            currentState = TABELA_LIDER;
+        }
+    }
+    else
+    {
+        DrawRectangle(150, 340, 300, 50, LIME);
+    }
+    DrawText("Tabela de Lideres", 162, 350, 30, WHITE);
+
+    // botão sair
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 410, 300, 50}))
+    {
+        DrawRectangle(150, 410, 300, 50, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            CloseWindow();
+        }
+    }
+    else
+    {
+        DrawRectangle(150, 410, 300, 50, LIME);
+    }
+    DrawText("Sair", 280, 420, 30, WHITE);
+}
+
+void desenharJogando()
+{
+    ClearBackground(RAYWHITE);
+
+    int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
+    int alturaTotalGrade = LINHAS * LARGURA_GRADE;
+
+    int valorMedioX = (GetScreenWidth() - larguraTotalGrade) / 2;
+    int valorMedioY = (GetScreenHeight() - alturaTotalGrade) / 2;
+    int i, j, k, l, x, y;
+
+    // desenha as linhas verticais
+    for (i = 0; i <= COLUNAS; i++)
+    {
+        x = valorMedioX + i * ALTURA_GRADE;
+        DrawLine(x, valorMedioY, x, valorMedioY + alturaTotalGrade, BLACK);
+    }
+
+    // desenha as linhas horizontais
+    for (j = 0; j <= LINHAS; j++)
+    {
+        y = valorMedioY + j * LARGURA_GRADE;
+        DrawLine(valorMedioX, y, valorMedioX + larguraTotalGrade, y, BLACK);
+    }
+
+    // desenha os quadrados em si, além de colocar cada quadrado em uma matriz de Quadrados para referencia futura
+    for (int i = 0; i < COLUNAS; i++)
+    {
+        for (int j = 0; j < LINHAS; j++)
+        {
+            int larguraQuadrado = ALTURA_GRADE - 1;
+            int alturaQuadrado = LARGURA_GRADE - 1;
+
+            quadradosNaTela[j][i].quadrado = (Rectangle){
+                valorMedioX + i * ALTURA_GRADE,
+                valorMedioY + j * LARGURA_GRADE,
+                ALTURA_GRADE - 1,
+                LARGURA_GRADE - 1};
+
+            if ((i + j) % 2)
+            {
+                DrawRectangleRec(quadradosNaTela[j][i].quadrado, DARKGREEN);
+            }
+            else
+            {
+                DrawRectangleRec(quadradosNaTela[j][i].quadrado, LIME);
+            }
+
+            if (quadradosNaTela[j][i].estaSelecionado)
+            {
+                DrawRectangleLinesEx(quadradosNaTela[j][i].quadrado, 3, RED);
+            }
+        }
+    }
+
+    // seleciona ou desmarca o quadrado
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        Vector2 posicaoMouse = GetMousePosition();
+
+        for (int i = 0; i < COLUNAS; i++)
+        {
+            for (int j = 0; j < LINHAS; j++)
+            {
+                // verifica se o mouse foi clicado em cima de um quadrado
+                if (CheckCollisionPointRec(posicaoMouse, quadradosNaTela[j][i].quadrado))
+                {
+                    // caso o quadrado ja esteja selecionado, desmarca
+                    if (quadradosNaTela[j][i].estaSelecionado)
+                    {
+                        quadradosNaTela[j][i].estaSelecionado = false;
+                    }
+                    else
+                    {
+                        // c.c. desmarca todos
+                        for (int k = 0; k < COLUNAS; k++)
+                        {
+                            for (int l = 0; l < LINHAS; l++)
+                            {
+                                quadradosNaTela[l][k].estaSelecionado = false;
+                            }
+                        }
+                        quadradosNaTela[j][i].estaSelecionado = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main(void)
+{
+    const int screenWidth = 1280;
+    const int screenHeight = 600;
+    InitWindow(screenWidth, screenHeight, "INF VS Zombies");
+
+    SetTargetFPS(60);
+
+    while (!WindowShouldClose())
+    {
+        switch (currentState)
+        {
+        case MENU:
+            ClearBackground(RAYWHITE);
+            desenharMenuPrincipal();
+            break;
+
+        case JOGANDO:
+            // fazendo
+            desenharJogando();
+            break;
+
+        case TABELA_LIDER:
+            ClearBackground(RAYWHITE);
+            // a fazer
+            break;
+
+        case FIM_DE_JOGO: // para quando perder
+            ClearBackground(RED);
+            DrawText("Fim de Jogo", 350, 150, 40, WHITE);
+            break;
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+
+    return 0;
+}
