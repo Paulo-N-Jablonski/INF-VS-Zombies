@@ -8,139 +8,361 @@
 #define COLUNAS 9
 #define ALTURA_GRADE 96
 #define LARGURA_GRADE 72
+#define MAX_PLANTAS 100
 
-typedef enum { MENU, JOGANDO, TABELA_LIDER, FIM_DE_JOGO } GameState;
+typedef enum
+{
+    MENU,
+    JOGANDO,
+    TABELA_LIDER,
+    FIM_DE_JOGO
+} GameState;
 GameState currentState = MENU;
 
-typedef struct Plantas {
-    Vector2 position;
+typedef enum
+{
+    NENHUMA,
+    PEASHOOTER,
+    SUNFLOWER
+} TipoPlantas;
+
+typedef struct Plantas
+{
+    Vector2 posicao;
+    TipoPlantas tipo;
+    bool estaViva;
 } Plantas;
 
-typedef struct Zumbis {
-    Vector2 position;
+typedef struct Projeteis
+{
+    Vector2 posicao;
+    int linhaSpawn;
+    float velocidade;
+    bool atingiu;
+} Projeteis;
+
+Plantas plantas[MAX_PLANTAS];
+int numeroPlantas = 0;
+
+typedef struct Quadrados
+{
+    Rectangle quadrado;
+    bool estaSelecionado;
+    bool estaDisponivel;
+} Quadrados;
+
+Quadrados quadradosNaTela[LINHAS][COLUNAS];
+
+typedef struct Zumbis
+{
+    Vector2 posicao;
+    int linhaSpawn;
     float velocidade; // definir com precisão dps
     int vida;
+    bool estaVivo;
 } Zumbis;
 
-void desenharMenuPrincipal() {
+int moedinhas = 100;
+int pontuacao = 0;
+int zumbisSpawnados = 0;
+bool gameOver = false;
+bool vitoria = false;
+
+void desenharMenuPrincipal()
+{
     ClearBackground(RAYWHITE);
 
     DrawText("Criador: Paulo Nata Jablonski - Turma D", 2, 590, 10, BLACK);
     DrawText("INF Vs Zombies", 145, 110, 40, DARKGREEN);
 
     // botão novo-jogo
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 200, 300, 50})) {
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 200, 300, 50}))
+    {
         DrawRectangle(150, 200, 300, 50, LIGHTGRAY);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
             currentState = JOGANDO;
         }
-    } else {
+    }
+    else
+    {
         DrawRectangle(150, 200, 300, 50, LIME);
     }
     DrawText("Jogar", 265, 210, 30, WHITE);
 
     // botão continuar jogando
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 270, 300, 50})) {
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 270, 300, 50}))
+    {
         DrawRectangle(150, 270, 300, 50, LIGHTGRAY);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            //currentState = JOGANDO;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            // currentState = JOGANDO;
         }
-    } else {
+    }
+    else
+    {
         DrawRectangle(150, 270, 300, 50, LIME);
     }
     DrawText("[TESTE]", 240, 280, 30, WHITE);
 
     // botão da tabela de lideres
-    if(CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 340, 300, 50})) {
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 340, 300, 50}))
+    {
         DrawRectangle(150, 340, 300, 50, LIGHTGRAY);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
             currentState = TABELA_LIDER;
         }
-    } else {
+    }
+    else
+    {
         DrawRectangle(150, 340, 300, 50, LIME);
     }
     DrawText("Tabela de Lideres", 162, 350, 30, WHITE);
 
     // botão sair
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 410, 300, 50})) {
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){150, 410, 300, 50}))
+    {
         DrawRectangle(150, 410, 300, 50, LIGHTGRAY);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
             CloseWindow();
         }
-    } else {
+    }
+    else
+    {
         DrawRectangle(150, 410, 300, 50, LIME);
     }
     DrawText("Sair", 280, 420, 30, WHITE);
 }
 
-void desenharJogando(){
-    ClearBackground(RAYWHITE);
-
-    int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
-    int alturaTotalGrade = LINHAS * LARGURA_GRADE;
-
-    int offsetX = (GetScreenWidth() - larguraTotalGrade) / 2;
-    int offsetY = (GetScreenHeight() - alturaTotalGrade) / 2;
-    int i, j, x, y;
-
-    // desenha as linhas verticais
-    for (i = 0; i <= COLUNAS; i++) {
-        x = offsetX + i * ALTURA_GRADE;
-        DrawLine(x, offsetY, x, offsetY + alturaTotalGrade, BLACK);
+void inicializaQuadrados()
+{
+    for (int i = 0; i < COLUNAS; i++)
+    {
+        for (int j = 0; j < LINHAS; j++)
+        {
+            quadradosNaTela[j][i].estaSelecionado = false;
+            quadradosNaTela[j][i].estaDisponivel = true;
+        }
     }
+}
 
-    // desenha as linhas horizontais
-    for (j = 0; j <= LINHAS; j++) {
-        y = offsetY + j * LARGURA_GRADE;
-        DrawLine(offsetX, y, offsetX + larguraTotalGrade, y, BLACK);
-    }
+void checaColisaoQuadrado(){
+    Vector2 posicaoMouse = GetMousePosition();
 
-    for (int i = 0; i < COLUNAS; i++) {
-        for (int j = 0; j < LINHAS; j++) {
-            int x = offsetX + i * ALTURA_GRADE;
-            int y = offsetY + j * LARGURA_GRADE;
-
-            int larguraQuadro = ALTURA_GRADE - 2;
-            int alturaQuadro = LARGURA_GRADE - 2;
-
-            if(i+j % 2){
-                DrawRectangle(x, y, larguraQuadro, alturaQuadro, DARKGREEN);
-            } else {
-                DrawRectangle(x, y, larguraQuadro, alturaQuadro, LIME);
+    for (int i = 0; i < COLUNAS; i++)
+    {
+        for (int j = 0; j < LINHAS; j++)
+        {
+            // verifica se o mouse foi clicado em cima de um quadrado
+            if (CheckCollisionPointRec(posicaoMouse, quadradosNaTela[j][i].quadrado))
+            {
+                // caso o quadrado ja esteja selecionado, desmarca
+                if (quadradosNaTela[j][i].estaSelecionado)
+                {
+                    quadradosNaTela[j][i].estaSelecionado = false;
+                }
+                else
+                {
+                    // c.c. desmarca todos
+                    for (int k = 0; k < COLUNAS; k++)
+                        {
+                            for (int l = 0; l < LINHAS; l++)
+                            {
+                                quadradosNaTela[l][k].estaSelecionado = false;
+                            }
+                        }
+                    quadradosNaTela[j][i].estaSelecionado = true;
+                }
             }
         }
     }
 }
 
-int main(void) {
+void desenhaPlantas() {
+    for (int i = 0; i < numeroPlantas; i++) {
+        if (plantas[i].estaViva) {
+            switch (plantas[i].tipo) {
+                case PEASHOOTER:
+                    DrawCircleV(plantas[i].posicao, 20, GREEN);
+                    break;
+                case SUNFLOWER:
+                    DrawCircleV(plantas[i].posicao, 20, YELLOW);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+void plantaSunFlower(int linha, int coluna) {
+    if (numeroPlantas < MAX_PLANTAS) {
+        Vector2 centroQuadrado = {
+            quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
+            quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f
+        };
+
+        plantas[numeroPlantas++] = (Plantas){
+            .posicao = centroQuadrado,
+            .tipo = SUNFLOWER,
+            .estaViva = true
+        };
+
+        quadradosNaTela[linha][coluna].estaDisponivel = false;
+    }
+}
+
+void verificaPlantaSunFlower() {
+    for (int i = 0; i < COLUNAS; i++) {
+        for (int j = 0; j < LINHAS; j++) {
+            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel) {
+                plantaSunFlower(j, i);
+                quadradosNaTela[j][i].estaSelecionado = false; // reseta seleção
+            }
+        }
+    }
+}
+
+void plantaPeaShooter(int linha, int coluna) {
+    if (numeroPlantas < MAX_PLANTAS) {
+        Vector2 centroQuadrado = {
+            quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
+            quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f
+        };
+
+        plantas[numeroPlantas++] = (Plantas){
+            .posicao = centroQuadrado,
+            .tipo = PEASHOOTER,
+            .estaViva = true
+        };
+
+        quadradosNaTela[linha][coluna].estaDisponivel = false;
+    }
+}
+
+void verificaPlantaPeaShooter() {
+    for (int i = 0; i < COLUNAS; i++) {
+        for (int j = 0; j < LINHAS; j++) {
+            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel) {
+                plantaPeaShooter(j, i);
+                quadradosNaTela[j][i].estaSelecionado = false; // reseta seleção
+            }
+        }
+    }
+}
+
+void desenharJogando()
+{
+    ClearBackground(RAYWHITE);
+
+    int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
+    int alturaTotalGrade = LINHAS * LARGURA_GRADE;
+
+    int valorMedioX = (GetScreenWidth() - larguraTotalGrade) / 2;
+    int valorMedioY = (GetScreenHeight() - alturaTotalGrade) / 2;
+    int i, j, k, l, x, y;
+
+    // desenha as linhas verticais
+    for (i = 0; i <= COLUNAS; i++)
+    {
+        x = valorMedioX + i * ALTURA_GRADE;
+        DrawLine(x, valorMedioY, x, valorMedioY + alturaTotalGrade, BLACK);
+    }
+
+    // desenha as linhas horizontais
+    for (j = 0; j <= LINHAS; j++)
+    {
+        y = valorMedioY + j * LARGURA_GRADE;
+        DrawLine(valorMedioX, y, valorMedioX + larguraTotalGrade, y, BLACK);
+    }
+
+    // desenha os quadrados em si, além de colocar cada quadrado em uma matriz de Quadrados para referencia futura
+    for (int i = 0; i < COLUNAS; i++)
+    {
+        for (int j = 0; j < LINHAS; j++)
+        {
+            int larguraQuadrado = ALTURA_GRADE - 1;
+            int alturaQuadrado = LARGURA_GRADE - 1;
+
+            quadradosNaTela[j][i].quadrado = (Rectangle){
+                valorMedioX + i * ALTURA_GRADE,
+                valorMedioY + j * LARGURA_GRADE,
+                ALTURA_GRADE - 1,
+                LARGURA_GRADE - 1};
+
+            if ((i + j) % 2)
+            {
+                DrawRectangleRec(quadradosNaTela[j][i].quadrado, DARKGREEN);
+            }
+            else
+            {
+                DrawRectangleRec(quadradosNaTela[j][i].quadrado, LIME);
+            }
+
+            if (quadradosNaTela[j][i].estaSelecionado)
+            {
+                DrawRectangleLinesEx(quadradosNaTela[j][i].quadrado, 2, RED);
+            }
+        }
+    }
+
+    // seleciona ou desmarca o quadrado
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        checaColisaoQuadrado();
+    }
+
+    // aparece a solzinho
+    if(IsKeyPressed(KEY_ONE))
+    {
+        verificaPlantaSunFlower();
+    }
+
+    // aparece a peashooter
+    if(IsKeyPressed(KEY_TWO))
+    {
+        verificaPlantaPeaShooter();
+    }
+}
+
+int main(void)
+{
     const int screenWidth = 1280;
     const int screenHeight = 600;
     InitWindow(screenWidth, screenHeight, "INF VS Zombies");
 
     SetTargetFPS(60);
 
+    inicializaQuadrados();
+
     while (!WindowShouldClose())
     {
-        switch (currentState) {
-            case MENU:
-                ClearBackground(RAYWHITE);
-                desenharMenuPrincipal();
-                break;
+        BeginDrawing();
 
-            case JOGANDO:
-                // a fazer
-                desenharJogando();
-                break;
+        switch (currentState)
+        {
+        case MENU:
+            ClearBackground(RAYWHITE);
+            desenharMenuPrincipal();
+            break;
 
-            case TABELA_LIDER:
-                ClearBackground(RAYWHITE);
-                // a fazer
-                break;
+        case JOGANDO:
+            // fazendo
+            desenharJogando();
+            desenhaPlantas();  // roda os frames das plantas todas as vezes (ela nao desaparece)
+            break;
 
-            case FIM_DE_JOGO: //para quando perder
-                ClearBackground(RED);
-                DrawText("Fim de Jogo", 350, 150, 40, WHITE);
-                break;
+        case TABELA_LIDER:
+            ClearBackground(RAYWHITE);
+            // a fazer
+            break;
+
+        case FIM_DE_JOGO: // para quando perder
+            ClearBackground(RED);
+            DrawText("Fim de Jogo", 350, 150, 40, WHITE);
+            break;
         }
 
         EndDrawing();
