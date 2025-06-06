@@ -6,14 +6,16 @@
 
 #define LINHAS 5
 #define COLUNAS 9
-#define ALTURA_GRADE 96
-#define LARGURA_GRADE 72
+#define ALTURA_GRADE 72
+#define LARGURA_GRADE 96
 #define MAX_PLANTAS 100
+#define MAX_ZUMBIS 100
 
 typedef enum
 {
     MENU,
     JOGANDO,
+    PAUSADO,
     TABELA_LIDER,
     FIM_DE_JOGO
 } GameState;
@@ -41,8 +43,20 @@ typedef struct Projeteis
     bool atingiu;
 } Projeteis;
 
+typedef struct Zumbis
+{
+    Vector2 posicao;
+    int linhaSpawn;
+    float velocidade; // definir com precisão dps
+    int vida;
+    bool estaVivo;
+} Zumbis;Zumbis zumbis[MAX_ZUMBIS];
+
 Plantas plantas[MAX_PLANTAS];
 int numeroPlantas = 0;
+
+Zumbis zumbis[MAX_ZUMBIS];
+int numeroZumbis = 0;
 
 typedef struct Quadrados
 {
@@ -53,15 +67,6 @@ typedef struct Quadrados
 
 Quadrados quadradosNaTela[LINHAS][COLUNAS];
 
-typedef struct Zumbis
-{
-    Vector2 posicao;
-    int linhaSpawn;
-    float velocidade; // definir com precisão dps
-    int vida;
-    bool estaVivo;
-} Zumbis;
-
 int moedinhas = 100;
 int pontuacao = 0;
 int zumbisSpawnados = 0;
@@ -71,6 +76,7 @@ bool vitoria = false;
 void desenharMenuPrincipal()
 {
     ClearBackground(RAYWHITE);
+    SetWindowSize(1280, 600);
 
     DrawText("Criador: Paulo Nata Jablonski - Turma D", 2, 590, 10, BLACK);
     DrawText("INF Vs Zombies", 145, 110, 40, DARKGREEN);
@@ -180,6 +186,52 @@ void checaColisaoQuadrado(){
     }
 }
 
+void checarColisaoZumbiPlanta()
+{
+    for (int i = 0; i < numeroZumbis; i++)
+    {
+        if (!zumbis[i].estaVivo) continue;
+
+        for (int j = 0; j < numeroPlantas; j++)
+        {
+            if (!plantas[j].estaViva) continue;
+
+            // Para saber em qual quadrado a planta está, você pode comparar a posição da planta com os quadrados
+            // Vamos verificar se o zumbi e a planta estão no mesmo quadrado
+
+            // Pode simplificar pegando o quadrado mais próximo da planta
+            for (int linha = 0; linha < LINHAS; linha++)
+            {
+                for (int coluna = 0; coluna < COLUNAS; coluna++)
+                {
+                    Rectangle quad = quadradosNaTela[linha][coluna].quadrado;
+
+                    // Verifica se a planta está dentro desse quadrado
+                    if (CheckCollisionPointRec(plantas[j].posicao, quad))
+                    {
+                        // Verifica se o zumbi colide com o mesmo quadrado (ou seja, estão na mesma casa)
+                        if (CheckCollisionRecs(
+                            (Rectangle){zumbis[i].posicao.x, zumbis[i].posicao.y, 72, 96},
+                            quad))
+                        {
+                            // Planta morreu
+                            plantas[j].estaViva = false;
+
+                            // Marca o quadrado como disponível para nova planta
+                            quadradosNaTela[linha][coluna].estaDisponivel = true;
+
+                            // Para evitar múltiplas mortes na mesma iteração, já pode sair do loop
+                            goto proximo_zumbi;
+                        }
+                    }
+                }
+            }
+        proximo_zumbi:
+            ;
+        }
+    }
+}
+
 void desenhaPlantas() {
     for (int i = 0; i < numeroPlantas; i++) {
         if (plantas[i].estaViva) {
@@ -242,7 +294,8 @@ void plantaPeaShooter(int linha, int coluna) {
     }
 }
 
-void verificaPlantaPeaShooter() {
+void verificaPlantaPeaShooter()
+{
     for (int i = 0; i < COLUNAS; i++) {
         for (int j = 0; j < LINHAS; j++) {
             if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel) {
@@ -253,16 +306,140 @@ void verificaPlantaPeaShooter() {
     }
 }
 
+void spawnarZumbi()
+{
+    if (numeroZumbis >= MAX_ZUMBIS) return;
+
+    int linha = GetRandomValue(0, LINHAS - 1);
+
+    Rectangle quad = quadradosNaTela[linha][COLUNAS - 1].quadrado;
+
+    float xInicial = quad.x + quad.width + 96;
+    float yInicial = quad.y;
+
+    zumbis[numeroZumbis++] = (Zumbis){
+        .posicao = {xInicial, yInicial},
+        .linhaSpawn = linha,
+        .velocidade = 0.2f,
+        .vida = 100,
+        .estaVivo = true
+    };
+}
+
+void desenharZumbis()
+{
+    for (int i = 0; i < numeroZumbis; i++)
+    {
+        if (zumbis[i].estaVivo)
+        {
+            // cor para representar zumbi
+            Color corZumbi = RED;
+
+            // retangulo que é o zumbi
+            Rectangle corpo = {
+                zumbis[i].posicao.x,
+                zumbis[i].posicao.y,
+                72,   // largura do zumbi
+                96    // altura do zumbi
+            };
+
+            DrawRectangleRec(corpo, corZumbi);
+        }
+    }
+}
+
+void atualizarZumbis()
+{
+    for (int i = 0; i < numeroZumbis; i++)
+    {
+        if (zumbis[i].estaVivo)
+        {
+            zumbis[i].posicao.x -= zumbis[i].velocidade;
+
+            // garante o alinhamento do zumbi em relação aos quadrados
+            zumbis[i].posicao.y = quadradosNaTela[zumbis[i].linhaSpawn][COLUNAS - 1].quadrado.y;
+
+            // TEMPORARIO: remove zumbi que sai da tela pela ESQUERDA
+            if (zumbis[i].posicao.x + 72 < 0)
+            {
+                zumbis[i].estaVivo = false;
+            }
+        }
+    }
+
+    // checa se houve alguma colisão após o movimento do zumbi
+    checarColisaoZumbiPlanta();
+}
+
+
+
+void pausaMenu()
+{
+    ClearBackground(DARKGRAY);
+
+    int i;
+    const char *mensagem1 = "Certeza que deseja sair no meio da partida?";
+    const char *mensagem2 = "Todo progresso nao salvo sera perdido.";
+    DrawText(mensagem1, 200, 180, 20, WHITE);
+    DrawText(mensagem2, 200, 210, 20, WHITE);
+
+    // Botão Continuar
+    Rectangle botaoContinuar = {250, 280, 150, 50};
+    if (CheckCollisionPointRec(GetMousePosition(), botaoContinuar))
+    {
+        DrawRectangleRec(botaoContinuar, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        {
+            currentState = JOGANDO; // Retorna ao jogo
+        }
+    }
+    else
+    {
+        DrawRectangleRec(botaoContinuar, GREEN);
+    }
+    DrawText("Continuar", botaoContinuar.x + 20, botaoContinuar.y + 15, 20, WHITE);
+
+    // Botão Sair
+    Rectangle botaoSair = {450, 280, 150, 50};
+    if (CheckCollisionPointRec(GetMousePosition(), botaoSair))
+    {
+        DrawRectangleRec(botaoSair, LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        {
+            for(i=0; i<numeroPlantas; i++){
+                plantas[i].estaViva = false;
+            }
+            numeroPlantas = 0;
+
+            for(i=0; i<numeroZumbis; i++){
+                zumbis[i].estaVivo = false;
+            }
+            numeroZumbis = 0;
+
+            currentState = MENU;
+        }
+    }
+    else
+    {
+        DrawRectangleRec(botaoSair, RED);
+    }
+    DrawText("Sair", botaoSair.x + 50, botaoSair.y + 15, 20, WHITE);
+}
+
+
+
 void desenharJogando()
 {
     ClearBackground(RAYWHITE);
+
+    SetWindowSize(((ALTURA_GRADE*9)+200), ((LARGURA_GRADE*5)+200));
 
     int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
     int alturaTotalGrade = LINHAS * LARGURA_GRADE;
 
     int valorMedioX = (GetScreenWidth() - larguraTotalGrade) / 2;
     int valorMedioY = (GetScreenHeight() - alturaTotalGrade) / 2;
-    int i, j, k, l, x, y;
+    int i, j, x, y;
 
     // desenha as linhas verticais
     for (i = 0; i <= COLUNAS; i++)
@@ -283,8 +460,6 @@ void desenharJogando()
     {
         for (int j = 0; j < LINHAS; j++)
         {
-            int larguraQuadrado = ALTURA_GRADE - 1;
-            int alturaQuadrado = LARGURA_GRADE - 1;
 
             quadradosNaTela[j][i].quadrado = (Rectangle){
                 valorMedioX + i * ALTURA_GRADE,
@@ -325,13 +500,17 @@ void desenharJogando()
     {
         verificaPlantaPeaShooter();
     }
+
+    // para fins de teste, gera um zumbi
+    if(IsKeyPressed(KEY_Z))
+    {
+        spawnarZumbi();
+    }
 }
 
 int main(void)
 {
-    const int screenWidth = 1280;
-    const int screenHeight = 600;
-    InitWindow(screenWidth, screenHeight, "INF VS Zombies");
+    InitWindow(1280, 600, "INF VS Zombies");
 
     SetTargetFPS(60);
 
@@ -352,6 +531,18 @@ int main(void)
             // fazendo
             desenharJogando();
             desenhaPlantas();  // roda os frames das plantas todas as vezes (ela nao desaparece)
+            desenharZumbis(); // roda os frames dos zumbis para eles spawnarem
+            atualizarZumbis();
+
+            // troca pro pausaMenu caso estesa seja apertado M
+            if (IsKeyPressed(KEY_M))
+            {
+                currentState = PAUSADO;
+            }
+            break;
+
+        case PAUSADO:
+            pausaMenu();
             break;
 
         case TABELA_LIDER:
