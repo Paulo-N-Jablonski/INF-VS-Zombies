@@ -112,7 +112,7 @@ void desenharMenuPrincipal()
     DrawText("Criador: Paulo Nata Jablonski - Turma D", 2, 590, 10, BLACK);
     DrawText("INF Vs Zombies", 145, 110, 40, DARKGREEN);
 
-    // botão novo-jogo
+    // bot?o novo-jogo
     if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
 {
     150, 200, 300, 50
@@ -130,7 +130,7 @@ void desenharMenuPrincipal()
     }
     DrawText("Jogar", 265, 210, 30, WHITE);
 
-    // botão continuar jogando
+    // bot?o continuar jogando
     if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
 {
     150, 270, 300, 50
@@ -148,7 +148,7 @@ void desenharMenuPrincipal()
     }
     DrawText("[TESTE]", 240, 280, 30, WHITE);
 
-    // botão da tabela de lideres
+    // bot?o da tabela de lideres
     if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
 {
     150, 340, 300, 50
@@ -166,7 +166,7 @@ void desenharMenuPrincipal()
     }
     DrawText("Tabela de Lideres", 162, 350, 30, WHITE);
 
-    // botão sair
+    // bot?o sair
     if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
 {
     150, 410, 300, 50
@@ -242,17 +242,17 @@ void checarColisaoZumbiPlanta()
             if (!plantas[j].estaViva)
                 continue;
 
-            // Para saber em qual quadrado a planta está, você pode comparar a posição da planta com os quadrados
-            // Vamos verificar se o zumbi e a planta estão no mesmo quadrado
+            // Para saber em qual quadrado a planta est?, voc? pode comparar a posi??o da planta com os quadrados
+            // Vamos verificar se o zumbi e a planta est?o no mesmo quadrado
 
-            // Pode simplificar pegando o quadrado mais próximo da planta
+            // Pode simplificar pegando o quadrado mais pr?ximo da planta
             for (int linha = 0; linha < LINHAS; linha++)
             {
                 for (int coluna = 0; coluna < COLUNAS; coluna++)
                 {
                     Rectangle quad = quadradosNaTela[linha][coluna].quadrado;
 
-                    // verifica se a planta está no quadrado
+                    // verifica se a planta est? no quadrado
                     if (CheckCollisionPointRec(plantas[j].posicao, quad))
                     {
                         // verifica se o zumbi colide no mesmo quadrado que a planta
@@ -333,7 +333,7 @@ void verificaPlantaSunFlower()
             {
                 moedinhas -= 50;
                 plantaSunFlower(j, i);
-                quadradosNaTela[j][i].estaSelecionado = false; // reseta seleção
+                quadradosNaTela[j][i].estaSelecionado = false; // reseta sele??o
             }
         }
     }
@@ -392,7 +392,7 @@ void spawnarZumbi()
     {
         .posicao = {xInicial, yInicial},
          .linhaSpawn = linha,
-          .velocidade = 0.2f,
+          .velocidade = 10.2f,
            .vida = 100,
             .estaVivo = true
     };
@@ -427,19 +427,18 @@ void atualizarZumbis()
         {
             zumbis[i].posicao.x -= zumbis[i].velocidade;
 
-            // garante o alinhamento do zumbi em relação aos quadrados
+            // garante o alinhamento do zumbi em rela??o aos quadrados
             zumbis[i].posicao.y = quadradosNaTela[zumbis[i].linhaSpawn][COLUNAS - 1].quadrado.y;
 
             // TEMPORARIO: remove zumbi que sai da tela pela ESQUERDA
             if (zumbis[i].posicao.x - 100 < 0)
             {
-                resetaJogo();
-                currentState = MENU;
+                currentState = FIM_DE_JOGO;
             }
         }
     }
 
-    // checa se houve alguma colisão após o movimento do zumbi
+    // checa se houve alguma colis?o ap?s o movimento do zumbi
     checarColisaoZumbiPlanta();
 }
 
@@ -454,7 +453,7 @@ void pausaMenu()
     DrawText(mensagem1, 200, 180, 20, WHITE);
     DrawText(mensagem2, 200, 210, 20, WHITE);
 
-    // Botão Continuar
+    // Bot?o Continuar
     Rectangle botaoContinuar = {250, 280, 150, 50};
     if (CheckCollisionPointRec(GetMousePosition(), botaoContinuar))
     {
@@ -470,7 +469,7 @@ void pausaMenu()
     }
     DrawText("Continuar", botaoContinuar.x + 20, botaoContinuar.y + 15, 20, WHITE);
 
-    // Botão Sair
+    // Bot?o Sair
     Rectangle botaoSair = {450, 280, 150, 50};
     if (CheckCollisionPointRec(GetMousePosition(), botaoSair))
     {
@@ -536,25 +535,23 @@ void jogoGanho()
     if (mouseOnText) framesCounter++;
     else framesCounter = 0;
 
-    // Desenho (sem BeginDrawing/ClearBackground)
-    DrawText("Vitoria! Digite seu nome:", (GetScreenWidth()/2), 140, 20, DARKGREEN);
+    DrawText("Vitoria! Digite seu nome:", (GetScreenWidth()/2)-105, 140, 20, DARKGREEN);
 
     DrawRectangleRec(textBox, LIGHTGRAY);
     if (mouseOnText) DrawRectangleLinesEx(textBox, 2, DARKGREEN);
     else DrawRectangleLinesEx(textBox, 2, GRAY);
 
-    DrawText(name, (int)textBox.x + 5, (int)textBox.y + 10, 20, MAROON);
+    DrawText(name, (int)textBox.x + 5, (int)textBox.y + 10, 32, DARKGRAY);
 
     if (mouseOnText && ((framesCounter/20)%2 == 0) && (letterCount < MAX_INPUT_CHARS))
     {
-        DrawText("_", (int)textBox.x + 8 + MeasureText(name, 20), (int)textBox.y + 10, 20, MAROON);
+        DrawText("_", (int)textBox.x + 8 + MeasureText(name, 20), (int)textBox.y + 10, 42, DARKGRAY);
     }
 
-    DrawText("Pressione ENTER para continuar...", 240, 300, 20, DARKGRAY);
+    DrawText("Pressione ENTER para continuar...", 270, 300, 20, DARKGRAY);
 
     if (IsKeyPressed(KEY_ENTER) && letterCount > 0)
     {
-        // aqui você pode salvar o nome ou mudar de estado
         resetaJogo();
         currentState = MENU;
     }
@@ -562,7 +559,29 @@ void jogoGanho()
 
 void jogoPerdido()
 {
-    // FAZERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+    ClearBackground(MAROON);
+
+    const char *mensagem1 = "Os zumbis comeram seu cerebro!";
+    const char *mensagem2 = "Mas não tema, é sempre chance para tentar novamente.";
+    DrawText(mensagem1, 250, 180, 20, WHITE);
+    DrawText(mensagem2, 150, 210, 20, WHITE);
+
+    const char *mensagem3 = "Caso deseje jogar novamente, PRESSIONE R.";
+    const char *mensagem4 = "Caso deseje voltar para o menu, PRESSIONE M.";
+    DrawText(mensagem3, 200, 270, 20, WHITE);
+    DrawText(mensagem4, 187, 300, 20, WHITE);
+
+    if (IsKeyPressed(KEY_M))
+    {
+        resetaJogo();
+        currentState = MENU;
+    }
+
+   if (IsKeyPressed(KEY_R))
+    {
+        resetaJogo();
+        currentState = JOGANDO;
+    }
 }
 
 void desenharJogando()
@@ -592,7 +611,7 @@ void desenharJogando()
         DrawLine(valorMedioX, y, valorMedioX + larguraTotalGrade, y, BLACK);
     }
 
-    // desenha os quadrados em si, além de colocar cada quadrado em uma matriz de Quadrados para referencia futura
+    // desenha os quadrados em si, al?m de colocar cada quadrado em uma matriz de Quadrados para referencia futura
     for (int i = 0; i < COLUNAS; i++)
     {
         for (int j = 0; j < LINHAS; j++)
@@ -650,6 +669,13 @@ void desenharJogando()
     if(IsKeyPressed(KEY_V))
     {
         vitoria = true;
+        currentState = FIM_DE_JOGO;
+    }
+
+    // para fins de teste, termina o jogo (PERDE)
+    if(IsKeyPressed(KEY_L))
+    {
+        vitoria = false;
         currentState = FIM_DE_JOGO;
     }
 }
