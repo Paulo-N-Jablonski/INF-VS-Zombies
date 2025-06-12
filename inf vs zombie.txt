@@ -8,8 +8,10 @@
 #define COLUNAS 9
 #define ALTURA_GRADE 72
 #define LARGURA_GRADE 96
-#define MAX_PLANTAS 100
+#define MAX_PLANTAS 90
 #define MAX_ZUMBIS 100
+#define MAX_PROJETEIS 1000
+#define MAX_SOIS 30
 #define MAX_INPUT_CHARS 9
 
 typedef enum
@@ -33,32 +35,48 @@ typedef struct Plantas
 {
     Vector2 posicao;
     TipoPlantas tipo;
+    float tempoDisparoSol;
     bool estaViva;
 } Plantas;
+
+Plantas plantas[MAX_PLANTAS];
+int numeroPlantas = 0;
 
 typedef struct Projeteis
 {
     Vector2 posicao;
-    int linhaSpawn;
     float velocidade;
+    int linhaSpawn;
+    int dano;
     bool atingiu;
+    bool ativa;
 } Projeteis;
+
+Projeteis projeteis[MAX_PROJETEIS];
+int numeroProjeteis = 0;
 
 typedef struct Zumbis
 {
     Vector2 posicao;
     int linhaSpawn;
-    float velocidade; // recomendado 0.2 - 0.4
+    float velocidade;
     int vida;
     bool estaVivo;
 } Zumbis;
-Zumbis zumbis[MAX_ZUMBIS];
-
-Plantas plantas[MAX_PLANTAS];
-int numeroPlantas = 0;
 
 Zumbis zumbis[MAX_ZUMBIS];
 int numeroZumbis = 0;
+
+typedef struct Sol
+{
+    Vector2 posicao;
+    bool ativo;
+    int valor;     // 25
+    float tempoVida; // para sumir dps de um tempo
+} Sol;
+
+Sol soisNaTela[MAX_SOIS];
+int numeroSoisNaTela = 0;
 
 typedef struct Quadrados
 {
@@ -69,7 +87,7 @@ typedef struct Quadrados
 
 Quadrados quadradosNaTela[LINHAS][COLUNAS];
 
-int moedinhas = 100;
+int solzinho = 100;
 int pontuacao = 0;
 int zumbisSpawnados = 0;
 bool vitoria = false;
@@ -86,19 +104,25 @@ void resetaJogo()
         }
     }
 
-    for(i=0; i<numeroPlantas; i++)
+    for (i = 0; i < numeroPlantas; i++)
     {
         plantas[i].estaViva = false;
     }
     numeroPlantas = 0;
 
-    for(i=0; i<numeroZumbis; i++)
+    for (i = 0; i < numeroZumbis; i++)
     {
         zumbis[i].estaVivo = false;
     }
     numeroZumbis = 0;
 
-    moedinhas = 100;
+    for (i = 0; i < numeroProjeteis; i++)
+    {
+        projeteis[i].ativa = false;
+    }
+    numeroProjeteis = 0;
+
+    solzinho = 100;
     pontuacao = 0;
     zumbisSpawnados = 0;
     vitoria = false;
@@ -112,11 +136,9 @@ void desenharMenuPrincipal()
     DrawText("Criador: Paulo Nata Jablonski - Turma D", 2, 590, 10, BLACK);
     DrawText("INF Vs Zombies", 145, 110, 40, DARKGREEN);
 
-    // bot?o novo-jogo
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
-{
-    150, 200, 300, 50
-}))
+    // botao novo-jogo
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){
+                                                       150, 200, 300, 50}))
     {
         DrawRectangle(150, 200, 300, 50, LIGHTGRAY);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -130,11 +152,9 @@ void desenharMenuPrincipal()
     }
     DrawText("Jogar", 265, 210, 30, WHITE);
 
-    // bot?o continuar jogando
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
-{
-    150, 270, 300, 50
-}))
+    // botao continuar jogando
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){
+                                                       150, 270, 300, 50}))
     {
         DrawRectangle(150, 270, 300, 50, LIGHTGRAY);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -149,10 +169,8 @@ void desenharMenuPrincipal()
     DrawText("[TESTE]", 240, 280, 30, WHITE);
 
     // bot?o da tabela de lideres
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
-{
-    150, 340, 300, 50
-}))
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){
+                                                       150, 340, 300, 50}))
     {
         DrawRectangle(150, 340, 300, 50, LIGHTGRAY);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -167,10 +185,8 @@ void desenharMenuPrincipal()
     DrawText("Tabela de Lideres", 162, 350, 30, WHITE);
 
     // bot?o sair
-    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle)
-{
-    150, 410, 300, 50
-}))
+    if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){
+                                                       150, 410, 300, 50}))
     {
         DrawRectangle(150, 410, 300, 50, LIGHTGRAY);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -241,28 +257,22 @@ void checarColisaoZumbiPlanta()
         {
             if (!plantas[j].estaViva)
                 continue;
-
-            // Para saber em qual quadrado a planta est?, voc? pode comparar a posi??o da planta com os quadrados
-            // Vamos verificar se o zumbi e a planta est?o no mesmo quadrado
-
-            // Pode simplificar pegando o quadrado mais pr?ximo da planta
             for (int linha = 0; linha < LINHAS; linha++)
             {
                 for (int coluna = 0; coluna < COLUNAS; coluna++)
                 {
                     Rectangle quad = quadradosNaTela[linha][coluna].quadrado;
 
-                    // verifica se a planta est? no quadrado
+                    // verifica se a planta esta no quadrado
                     if (CheckCollisionPointRec(plantas[j].posicao, quad))
                     {
                         // verifica se o zumbi colide no mesmo quadrado que a planta
                         if (CheckCollisionRecs(
-                                    (Rectangle)
-                    {
-                        zumbis[i]
-                            .posicao.x, zumbis[i].posicao.y, 72, 96
-                        },
-                        quad))
+                                (Rectangle){
+                                    zumbis[i]
+                                        .posicao.x,
+                                    zumbis[i].posicao.y, 72, 96},
+                                quad))
                         {
                             plantas[j].estaViva = false;
 
@@ -275,13 +285,12 @@ void checarColisaoZumbiPlanta()
                     }
                 }
             }
-proximo_zumbi:
-            ;
+        proximo_zumbi:;
         }
     }
 }
 
-void desenhaPlantas()
+void desenharPlantas()
 {
     for (int i = 0; i < numeroPlantas; i++)
     {
@@ -307,17 +316,15 @@ void plantaSunFlower(int linha, int coluna)
     if (numeroPlantas < MAX_PLANTAS)
     {
         Vector2 centroQuadrado =
-        {
-            quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
-            quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f
-        };
+            {
+                quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
+                quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f};
 
-        plantas[numeroPlantas++] = (Plantas)
-        {
+        plantas[numeroPlantas++] = (Plantas){
             .posicao = centroQuadrado,
-             .tipo = SUNFLOWER,
-              .estaViva = true
-        };
+            .tipo = SUNFLOWER,
+            .tempoDisparoSol = 0,
+            .estaViva = true};
 
         quadradosNaTela[linha][coluna].estaDisponivel = false;
     }
@@ -329,9 +336,9 @@ void verificaPlantaSunFlower()
     {
         for (int j = 0; j < LINHAS; j++)
         {
-            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel && moedinhas>=50)
+            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel && solzinho >= 50)
             {
-                moedinhas -= 50;
+                solzinho -= 50;
                 plantaSunFlower(j, i);
                 quadradosNaTela[j][i].estaSelecionado = false; // reseta sele??o
             }
@@ -344,17 +351,15 @@ void plantaPeaShooter(int linha, int coluna)
     if (numeroPlantas < MAX_PLANTAS)
     {
         Vector2 centroQuadrado =
-        {
-            quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
-            quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f
-        };
+            {
+                quadradosNaTela[linha][coluna].quadrado.x + quadradosNaTela[linha][coluna].quadrado.width / 2.0f,
+                quadradosNaTela[linha][coluna].quadrado.y + quadradosNaTela[linha][coluna].quadrado.height / 2.0f};
 
-        plantas[numeroPlantas++] = (Plantas)
-        {
+        plantas[numeroPlantas++] = (Plantas){
             .posicao = centroQuadrado,
-             .tipo = PEASHOOTER,
-              .estaViva = true
-        };
+            .tipo = PEASHOOTER,
+            .tempoDisparoSol = 0,
+            .estaViva = true};
 
         quadradosNaTela[linha][coluna].estaDisponivel = false;
     }
@@ -366,12 +371,129 @@ void verificaPlantaPeaShooter()
     {
         for (int j = 0; j < LINHAS; j++)
         {
-            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel && moedinhas>=100)
+            if (quadradosNaTela[j][i].estaSelecionado && quadradosNaTela[j][i].estaDisponivel && solzinho >= 100)
             {
-                moedinhas -= 100;
+                solzinho -= 100;
                 plantaPeaShooter(j, i);
                 quadradosNaTela[j][i].estaSelecionado = false;
             }
+        }
+    }
+}
+
+void criarProjeteis(float x, float y, int linha)
+{
+    for (int i = 0; i < MAX_PROJETEIS; i++) {
+        if (!projeteis[i].ativa) {
+            projeteis[i].posicao.x = x;
+            projeteis[i].posicao.y = y;
+            projeteis[i].velocidade = 200;
+            projeteis[i].ativa = true;
+            projeteis[i].dano = 20;
+            projeteis[i].linhaSpawn = linha;
+            projeteis[i].atingiu = false;
+
+            numeroProjeteis++;
+            return; // para voltar automaticamente e evitar repeticao
+        }
+    }
+}
+
+void atualizarPlantas()
+{
+    int i, j;
+
+    for (i = 0; i < numeroPlantas; i++)
+    {
+        if (plantas[i].tipo == PEASHOOTER && plantas[i].estaViva)
+        {
+            plantas[i].tempoDisparoSol += GetFrameTime();
+
+            if (plantas[i].tempoDisparoSol >= 4.0f)
+            {
+                int linha = -1;
+
+                for (j = 0; j < LINHAS; j++)
+                {
+                    Rectangle quad = quadradosNaTela[j][0].quadrado;
+                    if (plantas[i].posicao.y >= quad.y && plantas[i].posicao.y < quad.y + quad.height)
+                    {
+                        linha = j;
+                        break;
+                    }
+                }
+
+                int projX = plantas[i].posicao.x + 20;
+                int projY = plantas[i].posicao.y;
+                criarProjeteis(projX, projY, linha);
+
+
+                criarProjeteis(projX, projY, linha);
+
+                plantas[i].tempoDisparoSol = 0.0f;
+            }
+        }
+
+        if (plantas[i].tipo == SUNFLOWER && plantas[i].estaViva)
+        {
+            plantas[i].tempoDisparoSol += GetFrameTime();
+
+            if (plantas[i].tempoDisparoSol >= 4.0f)
+            {
+                solzinho += 25; // gera moeda
+                plantas[i].tempoDisparoSol = 0.0f;
+            }
+        }
+    }
+}
+
+void atualizarProjeteis()
+{
+    for (int i = 0; i < MAX_PROJETEIS; i++)
+    {
+        if (projeteis[i].ativa)
+        {
+            projeteis[i].posicao.x += projeteis[i].velocidade * GetFrameTime();
+
+            if (projeteis[i].posicao.x > GetScreenWidth())
+            {
+                projeteis[i].ativa = false;
+                continue;
+            }
+
+            for (int j = 0; j < numeroZumbis; j++)
+            {
+                if (zumbis[j].estaVivo && zumbis[j].linhaSpawn == projeteis[i].linhaSpawn)
+                {
+                    Rectangle zumbiRect = {zumbis[j].posicao.x, zumbis[j].posicao.y, 72, 96};
+                    Rectangle projetilRect = {projeteis[i].posicao.x, projeteis[i].posicao.y, 10, 10};
+
+                    if (CheckCollisionRecs(zumbiRect, projetilRect))
+                    {
+                        zumbis[j].vida -= projeteis[i].dano;
+                        projeteis[i].ativa = false;
+
+                        if (zumbis[j].vida <= 0)
+                        {
+                            zumbis[j].estaVivo = false;
+                            pontuacao += 100;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void desenharProjeteis()
+{
+    for (int i = 0; i < numeroProjeteis; i++)
+    {
+        if (projeteis[i].ativa)
+        {
+            DrawCircleV(projeteis[i].posicao, 5, BLUE);
         }
     }
 }
@@ -388,14 +510,12 @@ void spawnarZumbi()
     float xInicial = quad.x + quad.width + 96;
     float yInicial = quad.y;
 
-    zumbis[numeroZumbis++] = (Zumbis)
-    {
+    zumbis[numeroZumbis++] = (Zumbis){
         .posicao = {xInicial, yInicial},
-         .linhaSpawn = linha,
-          .velocidade = 10.2f,
-           .vida = 100,
-            .estaVivo = true
-    };
+        .linhaSpawn = linha,
+        .velocidade = 0.3f,
+        .vida = 100,
+        .estaVivo = true};
 }
 
 void desenharZumbis()
@@ -407,12 +527,11 @@ void desenharZumbis()
             Color corZumbi = RED;
 
             Rectangle corpo =
-            {
-                zumbis[i].posicao.x,
-                zumbis[i].posicao.y,
-                72, //largura e altura
-                96
-            };
+                {
+                    zumbis[i].posicao.x,
+                    zumbis[i].posicao.y,
+                    72,
+                    96};
 
             DrawRectangleRec(corpo, corZumbi);
         }
@@ -430,7 +549,6 @@ void atualizarZumbis()
             // garante o alinhamento do zumbi em rela??o aos quadrados
             zumbis[i].posicao.y = quadradosNaTela[zumbis[i].linhaSpawn][COLUNAS - 1].quadrado.y;
 
-            // TEMPORARIO: remove zumbi que sai da tela pela ESQUERDA
             if (zumbis[i].posicao.x - 100 < 0)
             {
                 currentState = FIM_DE_JOGO;
@@ -442,7 +560,20 @@ void atualizarZumbis()
     checarColisaoZumbiPlanta();
 }
 
+void desenharHUD()
+{
+    Rectangle caixaHUD = {20, 20, 200, 70};
+    DrawRectangleRec(caixaHUD, (Color){50, 50, 50, 200});
+    DrawRectangleLinesEx(caixaHUD, 3, WHITE);
 
+    char textoSol[30];
+    sprintf(textoSol, "Sol: %d", solzinho);
+    DrawText(textoSol, caixaHUD.x + 15, caixaHUD.y + 10, 20, YELLOW);
+
+    char textoPontos[30];
+    sprintf(textoPontos, "Pontos: %d", pontuacao);
+    DrawText(textoPontos, caixaHUD.x + 15, caixaHUD.y + 40, 20, SKYBLUE);
+}
 
 void pausaMenu()
 {
@@ -505,12 +636,14 @@ void jogoGanho()
     static bool mouseOnText = false;
     static int framesCounter = 0;
 
-    Rectangle textBox = { GetScreenWidth()/2.0f - 100, 180, 225, 50 };
+    Rectangle textBox = {GetScreenWidth() / 2.0f - 100, 180, 225, 50};
 
     mouseOnText = CheckCollisionPointRec(GetMousePosition(), textBox);
 
-    if (mouseOnText) SetMouseCursor(MOUSE_CURSOR_IBEAM);
-    else SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+    if (mouseOnText)
+        SetMouseCursor(MOUSE_CURSOR_IBEAM);
+    else
+        SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
     if (mouseOnText)
     {
@@ -527,25 +660,31 @@ void jogoGanho()
 
         if (IsKeyPressed(KEY_BACKSPACE))
         {
-            if (letterCount > 0) letterCount--;
+            if (letterCount > 0)
+                letterCount--;
             name[letterCount] = '\0';
         }
     }
 
-    if (mouseOnText) framesCounter++;
-    else framesCounter = 0;
+    if (mouseOnText)
+        framesCounter++;
+    else
+        framesCounter = 0;
 
-    DrawText("Vitoria! Digite seu nome:", (GetScreenWidth()/2)-105, 140, 20, DARKGREEN);
+    DrawText("Vitoria! Voce venceu os zumbis!", (GetScreenWidth() / 2) - 150, 110, 20, DARKGREEN);
+    DrawText("Digite seu nome:", (GetScreenWidth() / 2) - 70, 140, 20, DARKGREEN);
 
     DrawRectangleRec(textBox, LIGHTGRAY);
-    if (mouseOnText) DrawRectangleLinesEx(textBox, 2, DARKGREEN);
-    else DrawRectangleLinesEx(textBox, 2, GRAY);
+    if (mouseOnText)
+        DrawRectangleLinesEx(textBox, 2, DARKGREEN);
+    else
+        DrawRectangleLinesEx(textBox, 2, GRAY);
 
-    DrawText(name, (int)textBox.x + 5, (int)textBox.y + 10, 32, DARKGRAY);
+    DrawText(name, (int)textBox.x + 5, (int)textBox.y + 10, 40, DARKGRAY);
 
-    if (mouseOnText && ((framesCounter/20)%2 == 0) && (letterCount < MAX_INPUT_CHARS))
+    if (mouseOnText && ((framesCounter / 20) % 2 == 0) && (letterCount < MAX_INPUT_CHARS))
     {
-        DrawText("_", (int)textBox.x + 8 + MeasureText(name, 20), (int)textBox.y + 10, 42, DARKGRAY);
+        DrawText("_", (int)textBox.x + 8 + MeasureText(name, 40), (int)textBox.y + 10, 40, DARKGRAY);
     }
 
     DrawText("Pressione ENTER para continuar...", 270, 300, 20, DARKGRAY);
@@ -562,7 +701,7 @@ void jogoPerdido()
     ClearBackground(MAROON);
 
     const char *mensagem1 = "Os zumbis comeram seu cerebro!";
-    const char *mensagem2 = "Mas não tema, é sempre chance para tentar novamente.";
+    const char *mensagem2 = "Mas nao tema, eh sempre chance para tentar novamente.";
     DrawText(mensagem1, 250, 180, 20, WHITE);
     DrawText(mensagem2, 150, 210, 20, WHITE);
 
@@ -577,7 +716,7 @@ void jogoPerdido()
         currentState = MENU;
     }
 
-   if (IsKeyPressed(KEY_R))
+    if (IsKeyPressed(KEY_R))
     {
         resetaJogo();
         currentState = JOGANDO;
@@ -588,7 +727,7 @@ void desenharJogando()
 {
     ClearBackground(RAYWHITE);
 
-    SetWindowSize(((ALTURA_GRADE*9)+200), ((LARGURA_GRADE*5)+200));
+    SetWindowSize(((ALTURA_GRADE * 9) + 200), ((LARGURA_GRADE * 5) + 200));
 
     int larguraTotalGrade = COLUNAS * ALTURA_GRADE;
     int alturaTotalGrade = LINHAS * LARGURA_GRADE;
@@ -617,13 +756,11 @@ void desenharJogando()
         for (int j = 0; j < LINHAS; j++)
         {
 
-            quadradosNaTela[j][i].quadrado = (Rectangle)
-            {
+            quadradosNaTela[j][i].quadrado = (Rectangle){
                 valorMedioX + i * ALTURA_GRADE,
-                            valorMedioY + j * LARGURA_GRADE,
-                            ALTURA_GRADE - 1,
-                            LARGURA_GRADE - 1
-            };
+                valorMedioY + j * LARGURA_GRADE,
+                ALTURA_GRADE - 1,
+                LARGURA_GRADE - 1};
 
             if ((i + j) % 2)
             {
@@ -648,32 +785,32 @@ void desenharJogando()
     }
 
     // aparece a solzinho
-    if(IsKeyPressed(KEY_ONE))
+    if (IsKeyPressed(KEY_ONE))
     {
         verificaPlantaSunFlower();
     }
 
     // aparece a peashooter
-    if(IsKeyPressed(KEY_TWO))
+    if (IsKeyPressed(KEY_TWO))
     {
         verificaPlantaPeaShooter();
     }
 
     // para fins de teste, gera um zumbi
-    if(IsKeyPressed(KEY_Z))
+    if (IsKeyPressed(KEY_Z))
     {
         spawnarZumbi();
     }
 
     // para fins de teste, termina o jogo (GANHA)
-    if(IsKeyPressed(KEY_V))
+    if (IsKeyPressed(KEY_V))
     {
         vitoria = true;
         currentState = FIM_DE_JOGO;
     }
 
     // para fins de teste, termina o jogo (PERDE)
-    if(IsKeyPressed(KEY_L))
+    if (IsKeyPressed(KEY_L))
     {
         vitoria = false;
         currentState = FIM_DE_JOGO;
@@ -701,9 +838,16 @@ int main(void)
 
         case JOGANDO:
             ClearBackground(RAYWHITE);
+
             desenharJogando();
-            desenhaPlantas();  // roda os frames das plantas todas as vezes (ela nao desaparece)
-            desenharZumbis(); // roda os frames dos zumbis para eles spawnarem
+            desenharHUD();
+
+            desenharPlantas();
+            desenharProjeteis();
+            desenharZumbis();
+
+            atualizarPlantas();
+            atualizarProjeteis();
             atualizarZumbis();
 
             // troca pro pausaMenu caso estesa seja apertado M
@@ -725,9 +869,12 @@ int main(void)
 
         case FIM_DE_JOGO: // para quando perder (GANHAR OU PERDER)
             ClearBackground(RAYWHITE);
-            if(vitoria == true){
+            if (vitoria == true)
+            {
                 jogoGanho();
-            } else {
+            }
+            else
+            {
                 jogoPerdido();
             }
         }
